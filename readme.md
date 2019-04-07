@@ -43,3 +43,18 @@ Note that you have to download the data yourself:
 Samples of the input data
 ![input data](https://github.com/RobRomijnders/segm/blob/master/im/input_data.png?raw=true)
 ![segmentation results](https://github.com/RobRomijnders/segm/blob/master/im/segm_result.png?raw=true)
+
+# python-mnistによるMNISTデータの使用方法
+    - pip install from mnist import MNIST
+    - webからダウンロードしたmnistのubyteファイルを置く
+        - このファイルのパスを引数としてMNIST(パス)としてデータダウンロード
+    - ディレクトリ構造
+        - segm
+            - data
+                - cifar
+                    - data_...
+                - mnist
+                    - t10k0image...
+# Graph Convolution層の実装参考
+    - https://netres-bigdata.hatenablog.com/entry/2019/01/04/154554
+        - 100ノードを2値分類する程度の小規模ネットワーク
