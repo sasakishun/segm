@@ -58,3 +58,10 @@ Samples of the input data
 # Graph Convolution層の実装参考
     - https://netres-bigdata.hatenablog.com/entry/2019/01/04/154554
         - 100ノードを2値分類する程度の小規模ネットワーク
+
+# 実装進行表
+    - 画像からgrid行列を作成->OK
+        - 隣接行列とグラフラプラシアン生成
+    - sparse行列へ変換
+    - graph convolution部を実装
+    - 性能検証
