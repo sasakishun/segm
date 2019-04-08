@@ -5,6 +5,8 @@ import os
 from os.path import join, exists
 from mnist import MNIST
 
+np.set_printoptions(threshold=np.inf)
+
 
 def unpickle(file):
     """
@@ -141,5 +143,23 @@ class Datagen():
 
 if __name__ == "__main__":
     dg = Datagen('data/mnist', 'data/cifar')
-    data, segm_maps = dg.sample(32)
-    plot_data(data)
+    data, segm_maps = dg.sample(1)
+    # plot_data(data)
+    # plt.show()
+    print("data:{}".format(data))
+    print("data[0]:{}".format(data[0]))
+    print("segm_map:{}".format(segm_maps))
+    print("segm_map[0]:{}".format(segm_maps[0]))
+
+    batch_size = 1
+    data_batch, segm_map_batch = dg.sample(batch_size, norm=False)
+    data_batch = data_batch.reshape([3, 1024])[0]
+    data_batch = np.array(data_batch, dtype=np.int64)
+    data_batch = np.identity(256)[data_batch]
+    # print("#{} databatch:{}".format(e, data_batch))
+    x = data_batch.reshape([G.number_of_nodes(), 256])
+
+    segm_map_batch = np.array(segm_map_batch, dtype=np.int64)
+    segm_map_batch = segm_map_batch.reshape([32 * 32])
+    print("x:{}".format(x))
+    print("segm_map_batch:{}".format(segm_map_batch))

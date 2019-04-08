@@ -6,7 +6,10 @@ import numpy as np
 import networkx as nx
 import adjacency
 import matplotlib.pyplot as plt
+import scipy
 import math
+
+np.set_printoptions(threshold=np.inf)
 
 G = nx.Graph()
 nodes = np.array(list(range(32 * 32)))
@@ -43,6 +46,9 @@ def convert_sparse_matrix_to_sparse_tensor(X):
     return tf.SparseTensor(indices, coo.data, coo.shape)
 
 
+A_chil = convert_sparse_matrix_to_sparse_tensor(A_chil_)
+
+
 # GCN layerを出力する関数
 def GCN_layer(A, layer_input, W, activation):
     if activation is None:
@@ -57,20 +63,29 @@ learning_rate = 1e-3  # 学習率
 
 # モデル定義
 X = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 256])
-_segm_map = tf.placeholder(tf.float32, shape=[32*32])
+# _segm_map = tf.sparse_placeholder(tf.float32)
+_segm_map = tf.placeholder(tf.float32, shape=[32*32, 1])
+# _segm_map = convert_sparse_matrix_to_sparse_tensor(_segm_map)
+# _segm_map = tf.SparseTensor(indices=[[0, 0], [1, 2]], values=[1, 2], dense_shape=[32*32, 1])
 
-A_chil = convert_sparse_matrix_to_sparse_tensor(A_chil_)
 W_1 = tf.Variable(tf.random_normal([256, hidden_size]), dtype=tf.float32)
 W_2 = tf.Variable(tf.random_normal([hidden_size, d]), dtype=tf.float32)
-
 L1 = GCN_layer(A_chil, X, W_1, tf.nn.relu)
 L2 = GCN_layer(A_chil, L1, W_2, None)
+
+print("W_1:{}".format(tf.shape(W_1)))
+print("W_2:{}".format(tf.shape(W_2)))
+print("A_chil:{}".format(tf.shape(A_chil)))
+print("L1:{}".format(tf.shape(L1)))
+print("L2:{}".format(tf.shape(L2)))
 
 A_rec = tf.sigmoid(tf.matmul(L2, tf.transpose(L2)))
 
 # loss = tf.nn.l2_loss(tf.sparse.add(-1 * A_rec, A_chil))
-loss = tf.nn.l2_loss(tf.sparse.add(-1 * L2,
-                                   _segm_map))
+# L2 = tf.sparse.to_dense(L2)
+loss = tf.nn.l2_loss(tf.add(-1 * L2, _segm_map))
+# loss = tf.nn.l2_loss(tf.sparse.add(-1 * L2, _segm_map))
+# loss = tf.transpose(loss)
 train = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
 batch_size = 1
@@ -93,9 +108,33 @@ with tf.Session() as sess:
         x = data_batch.reshape([G.number_of_nodes(), 256])
 
         segm_map_batch = np.array(segm_map_batch, dtype=np.int64)
-        segm_map_batch = segm_map_batch.reshape([32*32])
-        tloss, _ = sess.run([loss, train],
-                            feed_dict={X: x, _segm_map: segm_map_batch})
+        print("segm_map_batch.shape:{}".format(segm_map_batch.shape))
+        """
+        indices = [[], []]
+        values = []
+        for i in range(segm_map_batch[0].shape[0]):
+            for j in range(segm_map_batch[0].shape[1]):
+                if segm_map_batch[0, i, j] != 0:
+                    indices[0].append(i)
+                    indices[1].append(j)
+                    values.append(segm_map_batch[0, i, j])
+        print("indices:{}".format(indices))
+        print("values:{}".format(values))
+        indices = np.array([[i for i in indices[0]],
+                            [i for i in indices[1]]], dtype=np.int64)
+        values = np.array([i for i in values], dtype=np.float32)
+        shape = np.array([32 * 32, 1], dtype=np.int64)
+        """
+        segm_map_batch = segm_map_batch.reshape([32 * 32, 1])
+        # segm_map_batch = scipy.sparse.lil_matrix(segm_map_batch)
+        print("x:{}".format(x.shape))
+        print("L1 in sess:{}".format(sess.run(tf.shape(L1), feed_dict={X: x})))
+        print("L2 in sess:{}".format(sess.run(tf.shape(L2), feed_dict={X: x})))
+        print("A_rec in sess:{}".format(sess.run(tf.shape(A_rec), feed_dict={X: x})))
+        print("segm_map_batch:{}".format(segm_map_batch.shape))
+
+        tloss, _ = sess.run([loss, train], feed_dict={X: x, _segm_map: segm_map_batch})
+        # segm_map_batch})
         loss_list.append(tloss)
         print("#{} loss:{}".format(e, tloss))
         """
