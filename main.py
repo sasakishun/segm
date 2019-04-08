@@ -56,9 +56,11 @@ hidden_size = 8  # 1層目の出力サイズ
 learning_rate = 1e-3  # 学習率
 
 # モデル定義
-X = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 2 ** 8])
+X = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 256])
+_segm_map = tf.placeholder(tf.float32, shape=[32*32])
+
 A_chil = convert_sparse_matrix_to_sparse_tensor(A_chil_)
-W_1 = tf.Variable(tf.random_normal([2 ** 8, hidden_size]), dtype=tf.float32)
+W_1 = tf.Variable(tf.random_normal([256, hidden_size]), dtype=tf.float32)
 W_2 = tf.Variable(tf.random_normal([hidden_size, d]), dtype=tf.float32)
 
 L1 = GCN_layer(A_chil, X, W_1, tf.nn.relu)
@@ -66,7 +68,9 @@ L2 = GCN_layer(A_chil, L1, W_2, None)
 
 A_rec = tf.sigmoid(tf.matmul(L2, tf.transpose(L2)))
 
-loss = tf.nn.l2_loss(tf.sparse.add(-1 * A_rec, A_chil))
+# loss = tf.nn.l2_loss(tf.sparse.add(-1 * A_rec, A_chil))
+loss = tf.nn.l2_loss(tf.sparse.add(-1 * L2,
+                                   _segm_map))
 train = tf.train.AdamOptimizer(learning_rate).minimize(loss)
 
 batch_size = 1
@@ -83,14 +87,17 @@ with tf.Session() as sess:
         # 学習
         data_batch, segm_map_batch = dg.sample(batch_size, norm=False)
         data_batch = data_batch.reshape([3, 1024])[0]
-        print("#{} pre_databatch:{}".format(e, data_batch))
         data_batch = np.array(data_batch, dtype=np.int64)
         data_batch = np.identity(256)[data_batch]
-        print("#{} databatch:{}".format(e, data_batch))
+        # print("#{} databatch:{}".format(e, data_batch))
         x = data_batch.reshape([G.number_of_nodes(), 256])
-        tloss, _ = sess.run([loss, train], feed_dict={X: x})
-        loss_list.append(tloss)
 
+        segm_map_batch = np.array(segm_map_batch, dtype=np.int64)
+        segm_map_batch = segm_map_batch.reshape([32*32])
+        tloss, _ = sess.run([loss, train],
+                            feed_dict={X: x, _segm_map: segm_map_batch})
+        loss_list.append(tloss)
+        print("#{} loss:{}".format(e, tloss))
         """
         # 学習結果の出力
         if (e + 1) % 100 == 0:
