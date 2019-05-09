@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 from os.path import join, exists
-from mnist import MNIST
+from mnist import MNIST # pip install python-mnist
 
 np.set_printoptions(threshold=np.inf)
 
