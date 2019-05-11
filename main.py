@@ -137,6 +137,11 @@ with tf.Session() as sess:
         # segm_map_batch})
         loss_list.append(tloss)
         print("#{} loss:{}".format(e, tloss))
+        if e % 100 == 0:
+            test_loss, segm_map_pred = sess.run([loss, L2],
+                                                feed_dict={X: data_batch, _segm_map: segm_map_batch})
+            print("shapes input:{} output:{} target:{}".format(np.shape(data_batch), np.shape(segm_map_batch), np.shape(segm_map_pred)))
+            plot_segm_map(np.squeeze(data_batch), np.squeeze(segm_map_batch), np.squeeze(segm_map_pred))
         """
         # 学習結果の出力
         if (e + 1) % 100 == 0:
