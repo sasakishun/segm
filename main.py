@@ -93,7 +93,7 @@ dg = Datagen('data/mnist', 'data/cifar')
 data, segm_map = dg.sample(batch_size, norm=False)
 
 # 学習部分
-epoch = 1000
+epoch = 10000
 # x = np.identity(G.number_of_nodes(), dtype="float32")
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
@@ -108,7 +108,7 @@ with tf.Session() as sess:
         x = data_batch.reshape([G.number_of_nodes(), 256])
 
         segm_map_batch = np.array(segm_map_batch, dtype=np.int64)
-        print("segm_map_batch.shape:{}".format(segm_map_batch.shape))
+        # print("segm_map_batch.shape:{}".format(segm_map_batch.shape))
         """
         indices = [[], []]
         values = []
@@ -127,11 +127,11 @@ with tf.Session() as sess:
         """
         segm_map_batch = segm_map_batch.reshape([32 * 32, 1])
         # segm_map_batch = scipy.sparse.lil_matrix(segm_map_batch)
-        print("x:{}".format(x.shape))
-        print("L1 in sess:{}".format(sess.run(tf.shape(L1), feed_dict={X: x})))
-        print("L2 in sess:{}".format(sess.run(tf.shape(L2), feed_dict={X: x})))
-        print("A_rec in sess:{}".format(sess.run(tf.shape(A_rec), feed_dict={X: x})))
-        print("segm_map_batch:{}".format(segm_map_batch.shape))
+        # print("x:{}".format(x.shape))
+        # print("L1 in sess:{}".format(sess.run(tf.shape(L1), feed_dict={X: x})))
+        # print("L2 in sess:{}".format(sess.run(tf.shape(L2), feed_dict={X: x})))
+        # print("A_rec in sess:{}".format(sess.run(tf.shape(A_rec), feed_dict={X: x})))
+        # print("segm_map_batch:{}".format(segm_map_batch.shape))
 
         tloss, _ = sess.run([loss, train], feed_dict={X: x, _segm_map: segm_map_batch})
         # segm_map_batch})
