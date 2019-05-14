@@ -7,7 +7,6 @@ import networkx as nx
 import adjacency
 import matplotlib.pyplot as plt
 import scipy
-import scipy.sparse as sp
 import math
 
 np.set_printoptions(threshold=np.inf)
@@ -37,9 +36,7 @@ A = nx.adjacency_matrix(G).astype("float32")
 D = nx.laplacian_matrix(G).astype("float32") + A
 for i in range(G.number_of_nodes()):
     D[i, i] = 1 / math.sqrt(D[i, i])
-A_chil_ = D.dot(A.dot(D))  # csr形式の疎行列
-# A_chil_ = sp.vstack((A_chil_, A_chil_, A_chil_), format='csr')
-print("A_chil_{}".format(np.shape(A_chil_)))
+A_chil_ = D.dot(A.dot(D))
 
 
 # scipy.sparse -> tf.SparseTensorへの変換のための関数
@@ -65,20 +62,15 @@ hidden_size = 8  # 1層目の出力サイズ
 learning_rate = 1e-3  # 学習率
 
 # モデル定義
-X0 = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 256])
-X1 = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 256])
-X2 = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 256])
+X = tf.placeholder(tf.float32, shape=[G.number_of_nodes(), 256])
 # _segm_map = tf.sparse_placeholder(tf.float32)
-_segm_map = tf.placeholder(tf.float32, shape=[32 * 32, 1])
+_segm_map = tf.placeholder(tf.float32, shape=[32*32, 1])
 # _segm_map = convert_sparse_matrix_to_sparse_tensor(_segm_map)
 # _segm_map = tf.SparseTensor(indices=[[0, 0], [1, 2]], values=[1, 2], dense_shape=[32*32, 1])
 
 W_1 = tf.Variable(tf.random_normal([256, hidden_size]), dtype=tf.float32)
 W_2 = tf.Variable(tf.random_normal([hidden_size, d]), dtype=tf.float32)
-L1_0 = GCN_layer(A_chil, X0, W_1, tf.nn.relu)
-L1_1 = GCN_layer(A_chil, X1, W_1, tf.nn.relu)
-L1_2 = GCN_layer(A_chil, X2, W_1, tf.nn.relu)
-L1 = tf.add(tf.add(L1_0, L1_1), L1_2)
+L1 = GCN_layer(A_chil, X, W_1, tf.nn.relu)
 L2 = GCN_layer(A_chil, L1, W_2, None)
 
 print("W_1:{}".format(tf.shape(W_1)))
@@ -87,7 +79,7 @@ print("A_chil:{}".format(tf.shape(A_chil)))
 print("L1:{}".format(tf.shape(L1)))
 print("L2:{}".format(tf.shape(L2)))
 
-# A_rec = tf.sigmoid(tf.matmul(L2, tf.transpose(L2)))
+A_rec = tf.sigmoid(tf.matmul(L2, tf.transpose(L2)))
 
 # loss = tf.nn.l2_loss(tf.sparse.add(-1 * A_rec, A_chil))
 # L2 = tf.sparse.to_dense(L2)
@@ -101,22 +93,19 @@ dg = Datagen('data/mnist', 'data/cifar')
 data, segm_map = dg.sample(batch_size, norm=False)
 
 # 学習部分
-epoch = 100001
+epoch = 10000
 # x = np.identity(G.number_of_nodes(), dtype="float32")
 with tf.Session() as sess:
     sess.run(tf.global_variables_initializer())
     loss_list = list()
-    data_batch, segm_map_batch = dg.sample(batch_size)
     for e in range(epoch):
         # 学習
-        # data_batch, segm_map_batch = dg.sample(batch_size)
-        # data_batch, segm_map_batch = dg.sample(batch_size, norm=False)
-        # print("data_batch:{} segm_map_batch:{}".format(data_batch.shape, segm_map_batch.shape))
-        x = data_batch.reshape([3, 1024])
-        x = np.array(x, dtype=np.int64)
-        x = np.identity(256)[x]
+        data_batch, segm_map_batch = dg.sample(batch_size, norm=False)
+        data_batch = data_batch.reshape([3, 1024])[0]
+        data_batch = np.array(data_batch, dtype=np.int64)
+        data_batch = np.identity(256)[data_batch]
         # print("#{} databatch:{}".format(e, data_batch))
-        x = x.reshape([3, G.number_of_nodes(), 256])
+        x = data_batch.reshape([G.number_of_nodes(), 256])
 
         segm_map_batch = np.array(segm_map_batch, dtype=np.int64)
         # print("segm_map_batch.shape:{}".format(segm_map_batch.shape))
@@ -144,26 +133,15 @@ with tf.Session() as sess:
         # print("A_rec in sess:{}".format(sess.run(tf.shape(A_rec), feed_dict={X: x})))
         # print("segm_map_batch:{}".format(segm_map_batch.shape))
 
-        tloss, _ = sess.run([loss, train], feed_dict={X0: x[0], X1: x[1], X2: x[2], _segm_map: segm_map_batch})
+        tloss, _ = sess.run([loss, train], feed_dict={X: x, _segm_map: segm_map_batch})
         # segm_map_batch})
         loss_list.append(tloss)
         print("#{} loss:{}".format(e, tloss))
-        if (e + 1) % 100000 == 0 or tloss < 1:
-            # data_batch, segm_map_batch = dg.sample(batch_size)  # , dataset='test')
-            # x = data_batch.reshape([3, 1024])
-            # x = np.array(x, dtype=np.int64)
-            # x = np.identity(256)[x]
-            # x = x.reshape([3, G.number_of_nodes(), 256])
-
-            # data_batch, segm_map_batch = dg.sample(batch_size, norm=False)
-            segm_map_batch = np.array(segm_map_batch, dtype=np.int64)
-            segm_map_batch = segm_map_batch.reshape([32 * 32, 1])
+        if e % 100 == 0:
             test_loss, segm_map_pred = sess.run([loss, L2],
-                                                feed_dict={X0: x[0], X1: x[1], X2: x[2], _segm_map: segm_map_batch})
-            # print("shapes input:{} output:{} target:{}".format(np.shape(data_batch), np.shape(segm_map_batch), np.shape(segm_map_pred)))
-            print("#{} loss:{}".format(e, test_loss))
-            plot_segm_map(data_batch.reshape([1, 32, 32, 3]), segm_map_batch.reshape([1, 32, 32]),
-                          np.squeeze(segm_map_pred).reshape([1, 32, 32]))
+                                                feed_dict={X: data_batch, _segm_map: segm_map_batch})
+            print("shapes input:{} output:{} target:{}".format(np.shape(data_batch), np.shape(segm_map_batch), np.shape(segm_map_pred)))
+            plot_segm_map(np.squeeze(data_batch), np.squeeze(segm_map_batch), np.squeeze(segm_map_pred))
         """
         # 学習結果の出力
         if (e + 1) % 100 == 0:
